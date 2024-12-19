@@ -1,0 +1,5 @@
+---
+'firemapper': patch
+---
+
+Metadata changes
