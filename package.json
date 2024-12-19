@@ -23,13 +23,16 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
-    "ci": "npm run build && npm run check-exports && npm run test"
+    "ci": "npm run build && npm run check-exports && npm run test",
+    "prepublishOnly": "npm run ci",
+    "local-release": "changeset version && changeset publish"
   },
   "type": "module",
   "main": "dist/index.js",
   "license": "MIT",
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.1",
+    "@changesets/cli": "^2.27.11",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
