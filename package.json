@@ -1,6 +1,6 @@
 {
   "name": "firemapper",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A firestore ORM with built-in pagination support.",
   "keywords": [
     "demo",
@@ -13,7 +13,7 @@
   "author": "Logan Armstrong <logan.n.armstrong@gmail.com> (armypele1.github.io)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mattpocock/tt-package-demo.git"
+    "url": "git+https://github.com/armypele1/firemapper.git"
   },
   "files": [
     "dist"
