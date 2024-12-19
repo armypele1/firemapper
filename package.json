@@ -1,14 +1,14 @@
 {
-  "name": "firemap",
+  "name": "firemapper",
   "version": "0.0.2",
   "description": "A firestore ORM with built-in pagination support.",
   "keywords": [
     "demo",
     "typescript"
   ],
-  "homepage": "https://alientoss.com",
+  "homepage": "https://github.com/armypele1/firemapper",
   "bugs": {
-    "url": "https://alientoss.com"
+    "url": "https://github.com/armypele1/firemapper"
   },
   "author": "Logan Armstrong <logan.n.armstrong@gmail.com> (armypele1.github.io)",
   "repository": {

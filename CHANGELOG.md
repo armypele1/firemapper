@@ -1,4 +1,4 @@
-# firemap
+# firemapper
 
 ## 0.0.2
 
