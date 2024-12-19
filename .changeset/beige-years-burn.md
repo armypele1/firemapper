@@ -1,5 +1,0 @@
----
-'firemap': patch
----
-
-Initial release
