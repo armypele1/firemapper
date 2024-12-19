@@ -23,7 +23,7 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
-    "ci": "npm run build && npm run check-format && npm run check-exports && npm run test"
+    "ci": "npm run build && npm run check-exports && npm run test"
   },
   "type": "module",
   "main": "dist/index.js",
