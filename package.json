@@ -3,7 +3,9 @@
   "version": "0.0.4",
   "description": "A firestore ORM with built-in pagination support.",
   "keywords": [
-    "demo",
+    "firestore",
+    "orm",
+    "pagination",
     "typescript"
   ],
   "homepage": "https://github.com/armypele1/firemapper",
@@ -33,8 +35,12 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.1",
     "@changesets/cli": "^2.27.11",
+    "@google-cloud/firestore": "^7.11.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "class-validator": "^0.14.1"
   }
 }
