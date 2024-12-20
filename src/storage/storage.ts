@@ -1,13 +1,12 @@
 import { Firestore } from '@google-cloud/firestore';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from '../repos/base.js';
 import type {
   IEntityConstructor,
   Constructor,
   IEntity,
   IRepositoryConstructor,
   ValidatorOptions,
-} from '../types/index.js';
-import { arraysAreEqual } from '../utils.js';
+} from '../types.js';
 
 export interface CollectionMetadata {
   name: string;
@@ -39,14 +38,10 @@ export class FireMapperStorage {
   public firestoreRef: Firestore | undefined = undefined;
 
   public getCollection = (constructor: IEntityConstructor) => {
-    let collection: CollectionMetadata | undefined;
-
-    collection = this.collections.find((c) => c.entityConstructor === constructor);
-
+    const collection = this.collections.find((c) => c.entityConstructor === constructor);
     if (!collection) {
       return null;
     }
-
     return collection;
   };
 

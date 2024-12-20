@@ -20,7 +20,7 @@ function initializeMetadataStorage() {
 /**
  * Return exisiting metadataStorage, otherwise create if not present
  */
-export const getMetadataStorage = (): FireMapperStorage => {
+export const getFiremapperStorage = (): FireMapperStorage => {
   const store = getFiremapperStore();
   initializeMetadataStorage();
 

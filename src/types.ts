@@ -43,6 +43,14 @@ export interface PaginationConfig {
   endBefore?: string;
 }
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  lastDoc: string | null; // last document ID in the current page
+  firstDoc: string | null; // first document ID in the current page
+  hasMore: boolean; // indicates if there are more results
+  total?: number; // optional total count (if requested)
+}
+
 export type QueryBuilder<T extends IEntity> = (query: TypedQuery<T>) => TypedQuery<T>;
 
 export interface IQueryable<T extends IEntity> {
