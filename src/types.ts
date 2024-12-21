@@ -3,7 +3,10 @@ import {
   type WhereFilterOp,
   FieldValue,
   type OrderByDirection,
+  Timestamp,
 } from '@google-cloud/firestore';
+
+export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 export type Constructor<T> = { new (): T };
 export type IEntityConstructor = Constructor<IEntity>;
@@ -11,37 +14,44 @@ export type IRepositoryConstructor = Constructor<IRepository<IEntity>>;
 
 export interface IEntity {
   id: string;
-  createTime: EpochTimeStamp;
-  updateTime: EpochTimeStamp;
+  createTime: Timestamp;
+  updateTime: Timestamp;
 }
 
-export type CreateData<T extends IEntity> = Omit<T, 'id' | 'createTime' | 'updateTime'>;
+export type CreateData<T extends IEntity> = Omit<PartialBy<T, 'id'>, 'createTime' | 'updateTime'>;
+export type UpdateData<T extends IEntity> = PartialBy<T, 'createTime' | 'updateTime'>;
 
-type OmitSystemFields<T extends IEntity> = Omit<T, 'id'> &
-  Pick<IEntity, 'createTime' | 'updateTime'>;
-export type TypedQuery<T extends IEntity> = Omit<Query<Omit<T, 'id'>>, 'where' | 'orderBy'> & {
-  where<K extends keyof OmitSystemFields<T>>(
-    fieldPath: K | '__name__' | '__createTime__' | '__updateTime__',
+export const SYSTEM_FIELD_MAP = {
+  id: '__name__',
+};
+
+export type SystemFieldMap = typeof SYSTEM_FIELD_MAP;
+export type SystemField = keyof typeof SYSTEM_FIELD_MAP;
+export type FirestoreSystemField = SystemFieldMap[SystemField];
+
+export type ToFirestoreField<K extends keyof T, T extends IEntity> = K extends SystemField
+  ? SystemFieldMap[K]
+  : K;
+
+type ControlledBuilderMethods = keyof Pick<Query, 'where' | 'orderBy'>;
+
+interface QueryOverrides<T extends IEntity> {
+  where<K extends keyof T>(
+    fieldPath: K,
     opStr: WhereFilterOp,
     value: T[K] | FieldValue | T[K][],
   ): TypedQuery<T>;
-  orderBy<K extends keyof OmitSystemFields<T>>(
-    fieldPath: K | '__name__' | '__createTime__' | '__updateTime__',
-    directionStr?: OrderByDirection,
-  ): TypedQuery<T>;
-};
+  orderBy<K extends keyof T>(fieldPath: K, directionStr?: OrderByDirection): TypedQuery<T>;
+}
+
+export type TypedQuery<T extends IEntity> = Omit<Query<T>, ControlledBuilderMethods> &
+  QueryOverrides<T>;
+
+// Used for queries in the findAll/findOne methods
+export type SimpleTypedQuery<T extends IEntity> = QueryOverrides<T>;
 
 export type FieldValueOperation = FieldValue | FirebaseFirestore.FieldValue;
-
-export type UpdateData<T extends IEntity> = {
-  [K in keyof Omit<T, 'id' | '__createTime__' | '__updateTime__'>]?: T[K] | FieldValueOperation;
-};
-
-export interface PaginationConfig {
-  limit?: number;
-  startAfter?: string;
-  endBefore?: string;
-}
+export type DocId = string;
 
 export interface PaginatedResponse<T> {
   items: T[];
@@ -52,21 +62,38 @@ export interface PaginatedResponse<T> {
 }
 
 export type QueryBuilder<T extends IEntity> = (query: TypedQuery<T>) => TypedQuery<T>;
+export type SimpleQueryBuilder<T extends IEntity> = (
+  query: SimpleTypedQuery<T>,
+) => SimpleTypedQuery<T>;
 
 export interface IQueryable<T extends IEntity> {
-  findAll(queryBuilder?: QueryBuilder<T>, pagination?: PaginationConfig): Promise<T[]>;
-  findOne(queryBuilder?: QueryBuilder<T>): Promise<T | null>;
+  findAll(
+    queryBuilder?: SimpleQueryBuilder<T>,
+    limit?: number,
+    startAfter?: DocId,
+    endBefore?: DocId,
+  ): Promise<PaginatedResponse<T>>;
+  findOne(queryBuilder?: SimpleQueryBuilder<T>): Promise<T | null>;
+  customQuery(queryBuilder: QueryBuilder<T>): Promise<T[]>;
 }
 
 export interface IBaseRepository<T extends IEntity> {
-  findById(id: string): Promise<T | null>;
+  findById(id: DocId): Promise<T | null>;
   create(item: CreateData<T>): Promise<T>;
   update(item: UpdateData<T>): Promise<T>;
-  delete(id: string): Promise<void>;
+  delete(id: DocId): Promise<void>;
 }
 
 export type IRepository<T extends IEntity> = IBaseRepository<T> & IQueryable<T>;
 export type ITransactionRepository<T extends IEntity> = IRepository<T>;
+
+export interface ITransactionReference<T = IEntity> {
+  entity: T;
+  propertyKey: string;
+  path: string;
+}
+
+export type ITransactionReferenceStorage = Set<ITransactionReference>;
 
 export interface ValidatorOptions {
   /**

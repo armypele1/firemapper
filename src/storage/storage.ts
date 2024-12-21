@@ -1,5 +1,5 @@
 import { Firestore } from '@google-cloud/firestore';
-import { BaseRepository } from '../repos/base.js';
+import { FiremapperRepository } from '../repos/abstract.js';
 import type {
   IEntityConstructor,
   Constructor,
@@ -64,9 +64,9 @@ export class FireMapperStorage {
       throw new Error('Cannot register a custom repository twice with two different targets');
     }
 
-    if (!(repo.target.prototype instanceof BaseRepository)) {
+    if (!(repo.target.prototype instanceof FiremapperRepository)) {
       throw new Error(
-        'Cannot register a custom repository on a class that does not inherit from BaseFirestoreRepository',
+        'Cannot register a custom repository on a class that does not inherit from BaseRepository',
       );
     }
 

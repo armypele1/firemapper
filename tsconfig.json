@@ -10,6 +10,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "types": ["vitest/globals"],
+    "strictPropertyInitialization": false,
     // "lib": ["es2022"],
 
     /* Strictness */
@@ -27,7 +28,11 @@
     "declaration": true,
 
     /* AND if you're building for a library in a monorepo: */
-    "declarationMap": true
+    "declarationMap": true,
+
+    /* Reflect Metadata */
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
   },
   "include": ["src/**/*"]
 }
