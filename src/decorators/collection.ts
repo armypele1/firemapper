@@ -1,9 +1,8 @@
 import { getFiremapperStorage } from '../storage/storage-utils.js';
-import type { IEntityConstructor } from '../types.js';
+import type { EntityConstructor } from '../types.js';
 
-export function Collection(collName: string) {
-  return function (entityConstructor: IEntityConstructor) {
-    const name = collName;
+export function Collection(name: string) {
+  return function (entityConstructor: EntityConstructor) {
     getFiremapperStorage().setCollection({
       name,
       entityConstructor,

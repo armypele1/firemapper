@@ -20,13 +20,13 @@ import {
  * @returns either a firestore system field (e.g. name) or just the field itself
  */
 export function toFirestoreField<T extends IEntity, K extends keyof T>(
-  field: K,
+  field: Omit<K, 'ref'>,
 ): ToFirestoreField<K, T> {
-  return (SYSTEM_FIELD_MAP[field as SystemField] ?? field) as ToFirestoreField<K, T>;
+  return (SYSTEM_FIELD_MAP[field as unknown as SystemField] ?? field) as ToFirestoreField<K, T>;
 }
 
 /**
- * Factory function to create a typed query with mapped fields (e.g. id -> \_\_name\_\_)
+ * Factory method to create a typed query with mapped fields (e.g. id -> \_\_name\_\_)
  * @param query - query to convert to typed query
  * @returns typed query
  */
@@ -35,7 +35,7 @@ export function createTypedQuery<T extends IEntity>(query: Query): TypedQuery<T>
 
   const originalWhere = query.where.bind(query);
   typedQuery.where = function <K extends keyof T>(
-    fieldPath: K,
+    fieldPath: Omit<K, 'ref'>,
     opStr: WhereFilterOp,
     value: T[K] | FieldValue | T[K][],
   ): TypedQuery<T> {
@@ -45,12 +45,14 @@ export function createTypedQuery<T extends IEntity>(query: Query): TypedQuery<T>
 
   const originalOrderBy = query.orderBy.bind(query);
   typedQuery.orderBy = function <K extends keyof T>(
-    fieldPath: K,
+    fieldPath: Omit<K, 'ref'>,
     directionStr?: OrderByDirection,
   ): TypedQuery<T> {
     const firestoreField = toFirestoreField<T, K>(fieldPath);
     return createTypedQuery<T>(originalOrderBy(firestoreField as string, directionStr));
   };
+
+  // TODO Override get to optionally populate document references
 
   return typedQuery;
 }

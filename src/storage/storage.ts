@@ -1,22 +1,22 @@
 import { Firestore } from '@google-cloud/firestore';
 import { FiremapperRepository } from '../repos/abstract.js';
 import type {
-  IEntityConstructor,
+  EntityConstructor,
   Constructor,
   IEntity,
-  IRepositoryConstructor,
+  RepositoryConstructor,
   ValidatorOptions,
 } from '../types.js';
 
 export interface CollectionMetadata {
   name: string;
-  entityConstructor: IEntityConstructor;
+  entityConstructor: EntityConstructor;
   propertyKey?: string;
 }
 
 export interface RepositoryMetadata {
-  target: IRepositoryConstructor;
-  entity: IEntityConstructor;
+  target: RepositoryConstructor;
+  entity: EntityConstructor;
 }
 
 export interface FireMapperStorageConfig {
@@ -27,7 +27,7 @@ export interface FireMapperStorageConfig {
 
 export class FireMapperStorage {
   readonly collections: Array<CollectionMetadata> = [];
-  protected readonly repositories: Map<IEntityConstructor, RepositoryMetadata> = new Map();
+  protected readonly repositories: Map<EntityConstructor, RepositoryMetadata> = new Map();
 
   public config: FireMapperStorageConfig = {
     validateModels: false,
@@ -37,7 +37,7 @@ export class FireMapperStorage {
 
   public firestoreRef: Firestore | undefined = undefined;
 
-  public getCollection = (constructor: IEntityConstructor) => {
+  public getCollection = (constructor: EntityConstructor) => {
     const collection = this.collections.find((c) => c.entityConstructor === constructor);
     if (!collection) {
       return null;
@@ -53,7 +53,7 @@ export class FireMapperStorage {
     this.collections.push(col);
   };
 
-  public getRepository = (param: IEntityConstructor) => {
+  public getRepository = (param: EntityConstructor) => {
     return this.repositories.get(param) || null;
   };
 

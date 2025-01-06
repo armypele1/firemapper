@@ -1,27 +1,43 @@
-import {
-  DEFAULT_PAGE_SIZE,
-  type DocId,
-  type IEntity,
-  type IRepository,
-  type PaginatedQueryOptions,
-  type PaginatedResponse,
-  type PartialBy,
-  type QueryBuilder,
-  type SimpleQueryBuilder,
-  type TypedQuery,
-  type TypedUpdateData,
+import { DocumentSnapshot, Query, Timestamp, type Transaction } from '@google-cloud/firestore';
+import type {
+  DocId,
+  IEntity,
+  EntityConstructor,
+  ITransactionRepository,
+  PaginatedQueryOptions,
+  PaginatedResponse,
+  PartialBy,
+  QueryBuilder,
+  SimpleQueryBuilder,
+  TypedQuery,
+  TypedUpdateData,
 } from '../types.js';
 import { AbstractRepository } from './abstract.js';
-import { Timestamp, type UpdateData } from '@google-cloud/firestore';
 
-export class BaseRepository<T extends IEntity>
+export class TransactionRepository<T extends IEntity>
   extends AbstractRepository<T>
-  implements IRepository<T>
+  implements ITransactionRepository<T>
 {
-  private async get(id: DocId): Promise<T> {
-    const doc = await this.colRef.doc(id).get();
+  constructor(
+    constructor: EntityConstructor,
+    private transaction: Transaction,
+  ) {
+    super(constructor);
+    this.transaction = transaction;
+  }
+
+  public async findById(id: DocId): Promise<T | null> {
+    const doc = await this.transaction.get(this.colRef.doc(id));
     if (!doc.exists) {
-      throw new Error(`Document with id ${id} does not exist`);
+      return null;
+    }
+    return this.docToEntity(doc);
+  }
+
+  public override async findByRef(ref: FirebaseFirestore.DocumentReference): Promise<T | null> {
+    const doc = await this.transaction.get(ref);
+    if (!doc.exists) {
+      return null;
     }
     return this.docToEntity(doc);
   }
@@ -30,6 +46,8 @@ export class BaseRepository<T extends IEntity>
     const doc = item.id ? this.colRef.doc(item.id) : this.colRef.doc();
     const now = Timestamp.now().seconds;
 
+    /* This existence check is not within the transaction since all reads must be
+    done before writes in Firestore transactions. */
     const exists = item.id ? (await doc.get()).exists : false;
     const itemToSave = {
       ...this.toSerializable(item),
@@ -37,49 +55,30 @@ export class BaseRepository<T extends IEntity>
       ...(exists ? {} : { createTime: now }),
     };
 
-    console.log(itemToSave);
-
-    await doc.set(itemToSave);
+    await this.transaction.set(doc, itemToSave);
     return this.serializableToEntity(doc, itemToSave);
   }
 
-  public async update(item: T, fields: TypedUpdateData<T>): Promise<T> {
+  public async update(item: T, fields: TypedUpdateData<T>): Promise<void> {
     const doc = this.colRef.doc(item.id);
     const serializedFields = this.toFirestoreUpdateData(fields);
     const now = Timestamp.now().seconds;
 
-    const res = await doc.update({
+    await this.transaction.update(doc, {
       ...serializedFields,
       updateTime: now,
     });
-    return this.get(item.id);
   }
 
   public async delete(id: string): Promise<void> {
-    await this.colRef.doc(id).delete();
-  }
-
-  public async findById(id: DocId): Promise<T | null> {
-    const doc = await this.colRef.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return this.docToEntity(doc);
-  }
-
-  public override async findByRef(ref: FirebaseFirestore.DocumentReference): Promise<T | null> {
-    const doc = await ref.get();
-    if (!doc.exists) {
-      return null;
-    }
-    return this.docToEntity(doc);
+    await this.transaction.delete(this.colRef.doc(id));
   }
 
   public async findOne(queryBuilder: SimpleQueryBuilder<T>): Promise<T | null> {
     let query = queryBuilder
       ? queryBuilder(this.simpleBaseQuery)
       : this.simpleBaseQuery.orderBy('updateTime', 'desc');
-    const snapshot = await (query as TypedQuery<T>).limit(1).get();
+    const snapshot = await this.transaction.get((query as TypedQuery<T>).limit(1));
     if (snapshot.empty) {
       return null;
     }
@@ -101,7 +100,7 @@ export class BaseRepository<T extends IEntity>
 
     const { query: paginatedQuery, limit } = await this.applyPagination(query, page);
 
-    const snapshot = await paginatedQuery.get();
+    const snapshot = await this.transaction.get(paginatedQuery as unknown as Query<T>);
     const hasMore = !!(limit && snapshot.docs.length > limit);
     const docs = hasMore ? snapshot.docs.slice(0, limit) : snapshot.docs;
     const items = docs.map((doc) => this.docToEntity(doc));
@@ -116,8 +115,8 @@ export class BaseRepository<T extends IEntity>
   }
 
   public async customQuery(queryBuilder: QueryBuilder<T>): Promise<T[]> {
-    const query = queryBuilder(this.baseQuery);
-    const snapshot = await query.get();
+    const query = queryBuilder(this.baseQuery) as TypedQuery<T>;
+    const snapshot = await this.transaction.get(query as unknown as Query<T>);
     return snapshot.docs.map((doc) => this.docToEntity(doc));
   }
 }

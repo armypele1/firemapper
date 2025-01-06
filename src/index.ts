@@ -1,4 +1,8 @@
-export const foo = (num: number) => {
-  return num + 1;
-};
-console.log(foo(1));
+import 'reflect-metadata';
+export { initialize } from './storage/storage-utils.js';
+export { Collection } from './decorators/collection.js';
+export { DocRef, DocRefArray } from './decorators/doc-ref.js';
+export { type IEntity } from './types.js';
+export { BaseEntity } from './entity.js';
+export { getRepository } from './repos/helpers.js';
+export { runTransaction } from './transaction.js';

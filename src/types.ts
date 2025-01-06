@@ -3,27 +3,50 @@ import {
   type WhereFilterOp,
   FieldValue,
   type OrderByDirection,
-  Timestamp,
+  DocumentReference,
 } from '@google-cloud/firestore';
+import { type UpdateData } from '@google-cloud/firestore';
 
 export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 export type Constructor<T> = { new (): T };
-export type IEntityConstructor = Constructor<IEntity>;
-export type IRepositoryConstructor = Constructor<IRepository<IEntity>>;
+export type EntityConstructor = Constructor<IEntity>;
+export type RepositoryConstructor = Constructor<IRepository<IEntity>>;
 
+// I want to use Firestore timestamps, but there is currently a bug in the Firestore emulator
+// where it thinks there is an issue with the expected timestamp format
 export interface IEntity {
-  id: string;
-  createTime: Timestamp;
-  updateTime: Timestamp;
+  readonly id: string;
+  readonly createTime: EpochTimeStamp;
+  readonly updateTime: EpochTimeStamp;
+  readonly ref: DocumentReference;
 }
 
-export type CreateData<T extends IEntity> = Omit<PartialBy<T, 'id'>, 'createTime' | 'updateTime'>;
-export type UpdateData<T extends IEntity> = PartialBy<T, 'createTime' | 'updateTime'>;
+export type CreateData<T extends IEntity> = Omit<
+  PartialBy<T, 'id'>,
+  'createTime' | 'updateTime' | 'ref'
+>;
+export type TypedUpdateData<T extends IEntity> = UpdateData<
+  Omit<T, 'id' | 'createTime' | 'updateTime' | 'ref'>
+>;
 
 export const SYSTEM_FIELD_MAP = {
   id: '__name__',
 };
+
+// TODO - add tests to make sure this covers all transforms
+export const FIRESTORE_TRANSFORMS = [
+  // Client SDK transforms
+  'NumericIncrementTransform',
+  'DeleteTransform',
+  'ServerTimestampTransform',
+  'ArrayUnionTransform',
+  'ArrayRemoveTransform',
+
+  // Admin SDK transforms
+  'FieldTransform',
+  'DeleteTransform', // Appears in both SDKs
+] as const;
 
 export type SystemFieldMap = typeof SYSTEM_FIELD_MAP;
 export type SystemField = keyof typeof SYSTEM_FIELD_MAP;
@@ -37,11 +60,14 @@ type ControlledBuilderMethods = keyof Pick<Query, 'where' | 'orderBy'>;
 
 interface QueryOverrides<T extends IEntity> {
   where<K extends keyof T>(
-    fieldPath: K,
+    fieldPath: Exclude<K, 'ref'>,
     opStr: WhereFilterOp,
     value: T[K] | FieldValue | T[K][],
   ): TypedQuery<T>;
-  orderBy<K extends keyof T>(fieldPath: K, directionStr?: OrderByDirection): TypedQuery<T>;
+  orderBy<K extends keyof T>(
+    fieldPath: Exclude<K, 'ref'>,
+    directionStr?: OrderByDirection,
+  ): TypedQuery<T>;
 }
 
 export type TypedQuery<T extends IEntity> = Omit<Query<T>, ControlledBuilderMethods> &
@@ -53,13 +79,30 @@ export type SimpleTypedQuery<T extends IEntity> = QueryOverrides<T>;
 export type FieldValueOperation = FieldValue | FirebaseFirestore.FieldValue;
 export type DocId = string;
 
-export interface PaginatedResponse<T> {
-  items: T[];
-  lastDoc: string | null; // last document ID in the current page
-  firstDoc: string | null; // first document ID in the current page
-  hasMore: boolean; // indicates if there are more results
-  total?: number; // optional total count (if requested)
+export interface PaginatedQueryOptions {
+  limit?: number;
+  startAfter?: DocId;
+  endBefore?: DocId;
 }
+
+/**
+ * A paginated response containing items and pagination metadata.
+ * @template T The type of items
+ */
+export interface PaginatedResponse<T> {
+  /** Items in the current page */
+  items: T[];
+  /** ID of the last document (for next page cursor) */
+  lastDoc: string | null;
+  /** ID of the first document (for previous page cursor) */
+  firstDoc: string | null;
+  /** Whether there are more pages available */
+  hasMore: boolean;
+  /** Total number of items across all pages */
+  total: number;
+}
+
+export const DEFAULT_PAGE_SIZE = 10 as const;
 
 export type QueryBuilder<T extends IEntity> = (query: TypedQuery<T>) => TypedQuery<T>;
 export type SimpleQueryBuilder<T extends IEntity> = (
@@ -69,9 +112,7 @@ export type SimpleQueryBuilder<T extends IEntity> = (
 export interface IQueryable<T extends IEntity> {
   findAll(
     queryBuilder?: SimpleQueryBuilder<T>,
-    limit?: number,
-    startAfter?: DocId,
-    endBefore?: DocId,
+    page?: PaginatedQueryOptions,
   ): Promise<PaginatedResponse<T>>;
   findOne(queryBuilder?: SimpleQueryBuilder<T>): Promise<T | null>;
   customQuery(queryBuilder: QueryBuilder<T>): Promise<T[]>;
@@ -79,13 +120,13 @@ export interface IQueryable<T extends IEntity> {
 
 export interface IBaseRepository<T extends IEntity> {
   findById(id: DocId): Promise<T | null>;
-  create(item: CreateData<T>): Promise<T>;
-  update(item: UpdateData<T>): Promise<T>;
+  save(item: CreateData<T>): Promise<T>;
+  update(item: T, updates: TypedUpdateData<T>): Promise<T> | Promise<void>;
   delete(id: DocId): Promise<void>;
 }
 
 export type IRepository<T extends IEntity> = IBaseRepository<T> & IQueryable<T>;
-export type ITransactionRepository<T extends IEntity> = IRepository<T>;
+export type ITransactionRepository<T extends IEntity> = IRepository<T> & IQueryable<T>;
 
 export interface ITransactionReference<T = IEntity> {
   entity: T;
@@ -93,7 +134,9 @@ export interface ITransactionReference<T = IEntity> {
   path: string;
 }
 
-export type ITransactionReferenceStorage = Set<ITransactionReference>;
+export interface IFirestoreTransaction<T extends IEntity = IEntity> {
+  getRepository(entityConstructor: EntityConstructor): IRepository<T>;
+}
 
 export interface ValidatorOptions {
   /**

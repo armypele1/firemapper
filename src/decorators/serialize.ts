@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { type Constructor } from '../types.js';
 export const serializeKey = Symbol('Serialize');
 
