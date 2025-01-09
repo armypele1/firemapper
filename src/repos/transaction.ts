@@ -56,6 +56,7 @@ export class TransactionRepository<T extends IEntity>
     };
 
     await this.transaction.set(doc, itemToSave);
+    await this.invalidateCache(doc.id);
     return this.serializableToEntity(doc, itemToSave);
   }
 
@@ -68,16 +69,16 @@ export class TransactionRepository<T extends IEntity>
       ...serializedFields,
       updateTime: now,
     });
+    await this.invalidateCache(doc.id);
   }
 
   public async delete(id: string): Promise<void> {
     await this.transaction.delete(this.colRef.doc(id));
+    await this.invalidateCache(id);
   }
 
   public async findOne(queryBuilder: SimpleQueryBuilder<T>): Promise<T | null> {
-    let query = queryBuilder
-      ? queryBuilder(this.simpleBaseQuery)
-      : this.simpleBaseQuery.orderBy('updateTime', 'desc');
+    let query = queryBuilder ? queryBuilder(this.simpleBaseQuery) : this.simpleBaseQuery;
     const snapshot = await this.transaction.get((query as TypedQuery<T>).limit(1));
     if (snapshot.empty) {
       return null;
@@ -91,9 +92,7 @@ export class TransactionRepository<T extends IEntity>
     page?: PaginatedQueryOptions,
   ): Promise<PaginatedResponse<T>> {
     const query = (
-      queryBuilder
-        ? queryBuilder(this.simpleBaseQuery)
-        : this.simpleBaseQuery.orderBy('updateTime', 'desc')
+      queryBuilder ? queryBuilder(this.simpleBaseQuery) : this.simpleBaseQuery
     ) as TypedQuery<T>;
     const countSnapshot = await query.count().get();
     const total = countSnapshot.data().count;

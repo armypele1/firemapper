@@ -1,10 +1,7 @@
 import {
   DocumentReference,
-  GeoPoint,
-  Timestamp,
   type CollectionReference,
   type DocumentSnapshot,
-  type WriteResult,
 } from '@google-cloud/firestore';
 import {
   DEFAULT_PAGE_SIZE,
@@ -24,9 +21,9 @@ import {
 } from '../types.js';
 import { getFiremapperStorage } from '../storage/storage-utils.js';
 import type { CollectionMetadata, FireMapperStorageConfig } from '../storage/storage.js';
-import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { createSimpleTypedQuery, createTypedQuery } from '../query.js';
 import { serializeExceptFieldValues, serializeExceptFirestoreDatatypes } from '../utils.js';
+import * as crypto from 'crypto';
 
 /**
  * Dummy class created with the sole purpose to be able to
@@ -48,6 +45,7 @@ export abstract class AbstractRepository<T extends IEntity>
   protected readonly baseQuery: TypedQuery<T>;
   protected readonly simpleBaseQuery: SimpleTypedQuery<T>;
   protected readonly colMetadata: CollectionMetadata;
+  protected readonly enabledCache: boolean;
 
   constructor(constructor: EntityConstructor) {
     super(); // Dummy call
@@ -68,6 +66,7 @@ export abstract class AbstractRepository<T extends IEntity>
     this.colRef = firestoreRef.collection(this.path);
     this.baseQuery = createTypedQuery(this.colRef);
     this.simpleBaseQuery = createSimpleTypedQuery(this.colRef);
+    this.enabledCache = !!(config.cache && config.cache.type === 'redis');
   }
 
   protected docToEntity(doc: DocumentSnapshot): T {
@@ -124,6 +123,44 @@ export abstract class AbstractRepository<T extends IEntity>
     const limit = page.limit ?? DEFAULT_PAGE_SIZE;
     query = query.limit(limit + 1) as TypedQuery<T>;
     return { query, limit };
+  }
+
+  // **** Caching ****
+  protected async setCached(key: string, value: any): Promise<void> {
+    if (!this.config.cache) return;
+    await this.config.cache.redisClient.set(key, JSON.stringify(value), {
+      EX: this.config.cache!.ttl,
+    });
+  }
+
+  protected getCacheKey(id: string): string {
+    return `${this.path}:${id}`;
+  }
+
+  /** Create a deterministic cache key based on query parameters */
+  protected getQueryCacheKey(query: TypedQuery<T>): string {
+    const hashedKey = crypto.createHash('md5').update(JSON.stringify(query)).digest('hex');
+    return `${this.path}:query:${hashedKey}`;
+  }
+
+  protected async getCached(key: string): Promise<any | null> {
+    if (!this.config.cache) return null;
+    const cached = await this.config.cache.redisClient.get(key);
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  protected async invalidateCache(id: string): Promise<void> {
+    if (!this.config.cache) return;
+
+    const key = this.getCacheKey(id);
+    await this.config.cache.redisClient.del(key);
+
+    // Invalidate all cached queries
+    const queryPattern = `${this.path}:query:*`;
+    const queryKeys = await this.config.cache.redisClient.keys(queryPattern);
+    if (queryKeys && queryKeys.length > 0) {
+      await this.config.cache.redisClient.del(queryKeys);
+    }
   }
 
   abstract save(item: CreateData<T>): Promise<T>;

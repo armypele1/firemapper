@@ -138,6 +138,14 @@ export interface IFirestoreTransaction<T extends IEntity = IEntity> {
   getRepository(entityConstructor: EntityConstructor): IRepository<T>;
 }
 
+export interface ICache<T> {
+  invalidateCache(item?: T): Promise<void>;
+  cacheEntity(item: T): Promise<void>;
+  cacheQuery(query: Query): Promise<void>;
+  getCachedEntity(id: string): Promise<T | null>;
+  getCachedQuery(query: Query): Promise<PaginatedResponse<T>>;
+}
+
 export interface ValidatorOptions {
   /**
    * If set to true then validator will skip validation of all properties that are undefined in the validating object.

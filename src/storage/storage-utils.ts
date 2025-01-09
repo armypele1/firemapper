@@ -41,4 +41,8 @@ export const initialize = (
 
   metadataStorage.firestoreRef = firestore;
   metadataStorage.config = config;
+
+  if (config.cache && config.cache.type === 'redis' && !config.cache.redisClient) {
+    throw new Error('Must provide redis client if using redis cache');
+  }
 };
