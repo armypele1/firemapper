@@ -1,4 +1,4 @@
-import { DocumentSnapshot, Query, Timestamp, type Transaction } from '@google-cloud/firestore';
+import { Query, Timestamp, type Transaction } from '@google-cloud/firestore';
 import type {
   DocId,
   IEntity,
@@ -44,7 +44,7 @@ export class TransactionRepository<T extends IEntity>
 
   public async save(item: PartialBy<T, 'id'>): Promise<T> {
     const doc = item.id ? this.colRef.doc(item.id) : this.colRef.doc();
-    const now = Timestamp.now().seconds;
+    const now = Timestamp.now();
 
     /* This existence check is not within the transaction since all reads must be
     done before writes in Firestore transactions. */
@@ -56,28 +56,29 @@ export class TransactionRepository<T extends IEntity>
     };
 
     await this.transaction.set(doc, itemToSave);
+    await this.cacheManager?.invalidate(doc.id);
     return this.serializableToEntity(doc, itemToSave);
   }
 
   public async update(item: T, fields: TypedUpdateData<T>): Promise<void> {
     const doc = this.colRef.doc(item.id);
     const serializedFields = this.toFirestoreUpdateData(fields);
-    const now = Timestamp.now().seconds;
+    const now = Timestamp.now();
 
     await this.transaction.update(doc, {
       ...serializedFields,
       updateTime: now,
     });
+    await this.cacheManager?.invalidate(doc.id);
   }
 
   public async delete(id: string): Promise<void> {
     await this.transaction.delete(this.colRef.doc(id));
+    await this.cacheManager?.invalidate(id);
   }
 
   public async findOne(queryBuilder: SimpleQueryBuilder<T>): Promise<T | null> {
-    let query = queryBuilder
-      ? queryBuilder(this.simpleBaseQuery)
-      : this.simpleBaseQuery.orderBy('updateTime', 'desc');
+    let query = queryBuilder ? queryBuilder(this.simpleBaseQuery) : this.simpleBaseQuery;
     const snapshot = await this.transaction.get((query as TypedQuery<T>).limit(1));
     if (snapshot.empty) {
       return null;
@@ -91,9 +92,7 @@ export class TransactionRepository<T extends IEntity>
     page?: PaginatedQueryOptions,
   ): Promise<PaginatedResponse<T>> {
     const query = (
-      queryBuilder
-        ? queryBuilder(this.simpleBaseQuery)
-        : this.simpleBaseQuery.orderBy('updateTime', 'desc')
+      queryBuilder ? queryBuilder(this.simpleBaseQuery) : this.simpleBaseQuery
     ) as TypedQuery<T>;
     const countSnapshot = await query.count().get();
     const total = countSnapshot.data().count;
