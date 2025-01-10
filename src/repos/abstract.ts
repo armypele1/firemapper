@@ -1,10 +1,7 @@
 import {
   DocumentReference,
-  GeoPoint,
-  Timestamp,
   type CollectionReference,
   type DocumentSnapshot,
-  type WriteResult,
 } from '@google-cloud/firestore';
 import {
   DEFAULT_PAGE_SIZE,
@@ -21,12 +18,13 @@ import {
   type SimpleTypedQuery,
   type TypedQuery,
   type TypedUpdateData,
+  type ICache,
 } from '../types.js';
 import { getFiremapperStorage } from '../storage/storage-utils.js';
 import type { CollectionMetadata, FireMapperStorageConfig } from '../storage/storage.js';
-import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { createSimpleTypedQuery, createTypedQuery } from '../query.js';
-import { serializeExceptFieldValues, serializeExceptFirestoreDatatypes } from '../utils.js';
+import { serializeWithFirestoreDatatypes } from '../utils.js';
+import { createCacheManager } from '../cache/helpers.js';
 
 /**
  * Dummy class created with the sole purpose to be able to
@@ -43,11 +41,11 @@ export abstract class AbstractRepository<T extends IEntity>
   implements IRepository<T>
 {
   protected readonly path: string;
-  protected readonly config: FireMapperStorageConfig;
   protected readonly colRef: CollectionReference;
   protected readonly baseQuery: TypedQuery<T>;
   protected readonly simpleBaseQuery: SimpleTypedQuery<T>;
   protected readonly colMetadata: CollectionMetadata;
+  protected readonly cacheManager: ICache<T> | undefined;
 
   constructor(constructor: EntityConstructor) {
     super(); // Dummy call
@@ -62,8 +60,11 @@ export abstract class AbstractRepository<T extends IEntity>
       throw new Error(`There is no metadata stored for "${constructor.name}"`);
     }
 
+    if (config.cache) {
+      this.cacheManager = createCacheManager<T>(colMetadata);
+    }
+
     this.colMetadata = colMetadata;
-    this.config = config;
     this.path = colMetadata.name;
     this.colRef = firestoreRef.collection(this.path);
     this.baseQuery = createTypedQuery(this.colRef);
@@ -90,7 +91,7 @@ export abstract class AbstractRepository<T extends IEntity>
   }
 
   protected toSerializable(item: T | PartialBy<T, 'id'>): Record<string, unknown> {
-    const serialized = serializeExceptFirestoreDatatypes(item);
+    const serialized = serializeWithFirestoreDatatypes(item);
     delete serialized.id;
     delete serialized.ref;
     delete serialized.createTime;
@@ -100,7 +101,7 @@ export abstract class AbstractRepository<T extends IEntity>
   }
 
   protected toFirestoreUpdateData(updates: TypedUpdateData<T>): Record<string, unknown> {
-    return serializeExceptFieldValues(updates);
+    return serializeWithFirestoreDatatypes(updates);
   }
 
   protected async applyPagination(

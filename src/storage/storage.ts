@@ -7,6 +7,7 @@ import type {
   RepositoryConstructor,
   ValidatorOptions,
 } from '../types.js';
+import { type RedisClientType } from 'redis';
 
 export interface CollectionMetadata {
   name: string;
@@ -23,6 +24,11 @@ export interface FireMapperStorageConfig {
   validateModels: boolean;
   validatorOptions?: ValidatorOptions;
   throwOnDuplicatedCollection?: boolean;
+  cache?: {
+    type: 'redis';
+    redisClient: RedisClientType;
+    ttl: number;
+  };
 }
 
 export class FireMapperStorage {
