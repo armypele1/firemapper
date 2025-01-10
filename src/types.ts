@@ -139,11 +139,17 @@ export interface IFirestoreTransaction<T extends IEntity = IEntity> {
 }
 
 export interface ICache<T> {
-  invalidateCache(item?: T): Promise<void>;
+  invalidate(id: string): Promise<void>;
   cacheEntity(item: T): Promise<void>;
-  cacheQuery(query: Query): Promise<void>;
+  cacheQuery(query: Query | TypedQuery<any>, queryResult: T | PaginatedResponse<T>): Promise<void>;
   getCachedEntity(id: string): Promise<T | null>;
-  getCachedQuery(query: Query): Promise<PaginatedResponse<T>>;
+  getCachedQueryMulti(query: Query | TypedQuery<any>): Promise<PaginatedResponse<T> | null>;
+  getCachedQuerySingle(query: Query | TypedQuery<any>): Promise<T | null>;
+}
+
+export interface SerializedDocRef {
+  __docRef: true;
+  path: string;
 }
 
 export interface ValidatorOptions {

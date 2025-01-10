@@ -42,7 +42,6 @@ export class FireMapperStorage {
   };
 
   public firestoreRef: Firestore | undefined = undefined;
-  public redisClient: RedisClientType | undefined = undefined;
 
   public getCollection = (constructor: EntityConstructor) => {
     const collection = this.collections.find((c) => c.entityConstructor === constructor);

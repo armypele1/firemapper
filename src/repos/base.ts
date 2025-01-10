@@ -12,7 +12,7 @@ import {
   type TypedUpdateData,
 } from '../types.js';
 import { AbstractRepository } from './abstract.js';
-import { Timestamp, type UpdateData } from '@google-cloud/firestore';
+import { Query, Timestamp, type UpdateData } from '@google-cloud/firestore';
 
 export class BaseRepository<T extends IEntity>
   extends AbstractRepository<T>
@@ -40,7 +40,7 @@ export class BaseRepository<T extends IEntity>
     console.log(itemToSave);
 
     await doc.set(itemToSave);
-    await this.invalidateCache(doc.id);
+    await this.cacheManager?.invalidate(doc.id);
     return this.serializableToEntity(doc, itemToSave);
   }
 
@@ -53,32 +53,28 @@ export class BaseRepository<T extends IEntity>
       ...serializedFields,
       updateTime: now,
     });
-    await this.invalidateCache(doc.id);
+    await this.cacheManager?.invalidate(doc.id);
     return this.get(item.id);
   }
 
   public async delete(id: string): Promise<void> {
     await this.colRef.doc(id).delete();
-    await this.invalidateCache(id);
+    await this.cacheManager?.invalidate(id);
   }
 
   public async findById(id: DocId): Promise<T | null> {
-    // Try cache
-    if (this.config.cache) {
-      console.log('Checking cache');
-      const cacheKey = this.getCacheKey(id);
-      const cached = await this.getCached(cacheKey);
-      if (cached) {
-        console.log('Found cached');
-        return cached as T;
-      }
+    const cached = await this.cacheManager?.getCachedEntity(id);
+    if (cached) {
+      return cached as T;
     }
 
     const doc = await this.colRef.doc(id).get();
     if (!doc.exists) {
       return null;
     }
-    return this.docToEntity(doc);
+    const entity = this.docToEntity(doc);
+    await this.cacheManager?.cacheEntity(entity);
+    return entity;
   }
 
   public override async findByRef(ref: FirebaseFirestore.DocumentReference): Promise<T | null> {
@@ -94,11 +90,9 @@ export class BaseRepository<T extends IEntity>
       ? (queryBuilder(this.simpleBaseQuery) as TypedQuery<T>).limit(1)
       : (this.simpleBaseQuery as TypedQuery<T>).limit(1);
 
-    // Try cache
-    if (this.config.cache) {
-      const cacheKey = this.getQueryCacheKey(query as TypedQuery<T>);
-      const cached = await this.getCached(cacheKey);
-      if (cached) return cached as T;
+    const cached = await this.cacheManager?.getCachedQuerySingle(query);
+    if (cached) {
+      return cached as T;
     }
 
     const snapshot = await query.get();
@@ -121,16 +115,10 @@ export class BaseRepository<T extends IEntity>
 
     const { query: paginatedQuery, limit } = await this.applyPagination(query, page);
 
-    // Try cache
-    if (this.config.cache) {
-      const cacheKey = this.getQueryCacheKey({
-        ...paginatedQuery,
-      } as unknown as TypedQuery<T>);
-      const cached = await this.getCached(cacheKey);
-      if (cached) {
-        console.log('Retrieving from cache!');
-        return cached as PaginatedResponse<T>;
-      }
+    const cached = await this.cacheManager?.getCachedQueryMulti(paginatedQuery);
+    if (cached) {
+      console.log('Retrieving from cache!');
+      return cached as PaginatedResponse<T>;
     }
 
     const snapshot = await paginatedQuery.get();
@@ -145,7 +133,7 @@ export class BaseRepository<T extends IEntity>
       total,
     };
 
-    await this.setCached(this.getQueryCacheKey(paginatedQuery), result);
+    await this.cacheManager?.cacheQuery(paginatedQuery, result);
     return result;
   }
 

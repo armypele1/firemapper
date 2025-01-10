@@ -26,35 +26,13 @@ const isFieldValue = (value: unknown) => {
   return FIRESTORE_TRANSFORMS.includes(value?.constructor.name as any);
 };
 
-export const serializeExceptFieldValues = (obj: any) => {
+export const serializeWithFirestoreDatatypes = (obj: any) => {
   const serialize = (value: unknown): any => {
-    if (isFieldValue(value)) {
+    if (isDocumentReference(value)) {
       return value;
     }
 
-    // Handle arrays
-    if (Array.isArray(value)) {
-      return value.map(serialize);
-    }
-
-    // Handle objects
-    if (value && typeof value === 'object') {
-      return Object.entries(value).reduce((acc: { [key: string]: any }, [key, val]) => {
-        acc[key] = serialize(val);
-        return acc;
-      }, {});
-    }
-
-    // Handle primitive values
-    return value;
-  };
-
-  return serialize(obj);
-};
-
-export const serializeExceptFirestoreDatatypes = (obj: any) => {
-  const serialize = (value: unknown): any => {
-    if (isDocumentReference(value)) {
+    if (isFieldValue(value)) {
       return value;
     }
 

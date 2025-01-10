@@ -56,7 +56,7 @@ export class TransactionRepository<T extends IEntity>
     };
 
     await this.transaction.set(doc, itemToSave);
-    await this.invalidateCache(doc.id);
+    await this.cacheManager?.invalidate(doc.id);
     return this.serializableToEntity(doc, itemToSave);
   }
 
@@ -69,12 +69,12 @@ export class TransactionRepository<T extends IEntity>
       ...serializedFields,
       updateTime: now,
     });
-    await this.invalidateCache(doc.id);
+    await this.cacheManager?.invalidate(doc.id);
   }
 
   public async delete(id: string): Promise<void> {
     await this.transaction.delete(this.colRef.doc(id));
-    await this.invalidateCache(id);
+    await this.cacheManager?.invalidate(id);
   }
 
   public async findOne(queryBuilder: SimpleQueryBuilder<T>): Promise<T | null> {

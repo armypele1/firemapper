@@ -18,12 +18,13 @@ import {
   type SimpleTypedQuery,
   type TypedQuery,
   type TypedUpdateData,
+  type ICache,
 } from '../types.js';
 import { getFiremapperStorage } from '../storage/storage-utils.js';
 import type { CollectionMetadata, FireMapperStorageConfig } from '../storage/storage.js';
 import { createSimpleTypedQuery, createTypedQuery } from '../query.js';
-import { serializeExceptFieldValues, serializeExceptFirestoreDatatypes } from '../utils.js';
-import * as crypto from 'crypto';
+import { serializeWithFirestoreDatatypes } from '../utils.js';
+import { createCacheManager } from '../cache/helpers.js';
 
 /**
  * Dummy class created with the sole purpose to be able to
@@ -40,12 +41,11 @@ export abstract class AbstractRepository<T extends IEntity>
   implements IRepository<T>
 {
   protected readonly path: string;
-  protected readonly config: FireMapperStorageConfig;
   protected readonly colRef: CollectionReference;
   protected readonly baseQuery: TypedQuery<T>;
   protected readonly simpleBaseQuery: SimpleTypedQuery<T>;
   protected readonly colMetadata: CollectionMetadata;
-  protected readonly enabledCache: boolean;
+  protected readonly cacheManager: ICache<T> | undefined;
 
   constructor(constructor: EntityConstructor) {
     super(); // Dummy call
@@ -60,13 +60,15 @@ export abstract class AbstractRepository<T extends IEntity>
       throw new Error(`There is no metadata stored for "${constructor.name}"`);
     }
 
+    if (config.cache) {
+      this.cacheManager = createCacheManager<T>(colMetadata);
+    }
+
     this.colMetadata = colMetadata;
-    this.config = config;
     this.path = colMetadata.name;
     this.colRef = firestoreRef.collection(this.path);
     this.baseQuery = createTypedQuery(this.colRef);
     this.simpleBaseQuery = createSimpleTypedQuery(this.colRef);
-    this.enabledCache = !!(config.cache && config.cache.type === 'redis');
   }
 
   protected docToEntity(doc: DocumentSnapshot): T {
@@ -89,7 +91,7 @@ export abstract class AbstractRepository<T extends IEntity>
   }
 
   protected toSerializable(item: T | PartialBy<T, 'id'>): Record<string, unknown> {
-    const serialized = serializeExceptFirestoreDatatypes(item);
+    const serialized = serializeWithFirestoreDatatypes(item);
     delete serialized.id;
     delete serialized.ref;
     delete serialized.createTime;
@@ -99,7 +101,7 @@ export abstract class AbstractRepository<T extends IEntity>
   }
 
   protected toFirestoreUpdateData(updates: TypedUpdateData<T>): Record<string, unknown> {
-    return serializeExceptFieldValues(updates);
+    return serializeWithFirestoreDatatypes(updates);
   }
 
   protected async applyPagination(
@@ -123,44 +125,6 @@ export abstract class AbstractRepository<T extends IEntity>
     const limit = page.limit ?? DEFAULT_PAGE_SIZE;
     query = query.limit(limit + 1) as TypedQuery<T>;
     return { query, limit };
-  }
-
-  // **** Caching ****
-  protected async setCached(key: string, value: any): Promise<void> {
-    if (!this.config.cache) return;
-    await this.config.cache.redisClient.set(key, JSON.stringify(value), {
-      EX: this.config.cache!.ttl,
-    });
-  }
-
-  protected getCacheKey(id: string): string {
-    return `${this.path}:${id}`;
-  }
-
-  /** Create a deterministic cache key based on query parameters */
-  protected getQueryCacheKey(query: TypedQuery<T>): string {
-    const hashedKey = crypto.createHash('md5').update(JSON.stringify(query)).digest('hex');
-    return `${this.path}:query:${hashedKey}`;
-  }
-
-  protected async getCached(key: string): Promise<any | null> {
-    if (!this.config.cache) return null;
-    const cached = await this.config.cache.redisClient.get(key);
-    return cached ? JSON.parse(cached) : null;
-  }
-
-  protected async invalidateCache(id: string): Promise<void> {
-    if (!this.config.cache) return;
-
-    const key = this.getCacheKey(id);
-    await this.config.cache.redisClient.del(key);
-
-    // Invalidate all cached queries
-    const queryPattern = `${this.path}:query:*`;
-    const queryKeys = await this.config.cache.redisClient.keys(queryPattern);
-    if (queryKeys && queryKeys.length > 0) {
-      await this.config.cache.redisClient.del(queryKeys);
-    }
   }
 
   abstract save(item: CreateData<T>): Promise<T>;

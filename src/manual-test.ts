@@ -4,7 +4,7 @@ import { getRepository } from './repos/helpers.js';
 import admin from 'firebase-admin';
 import { initialize } from './storage/storage-utils.js';
 import { runTransaction } from './transaction.js';
-import { FieldValue } from '@google-cloud/firestore';
+import { DocumentReference, FieldValue } from '@google-cloud/firestore';
 import { CustomRepository } from './repos/custom.js';
 import { BaseRepository } from './repos/base.js';
 import { createClient, type RedisClientType } from 'redis';
@@ -21,11 +21,11 @@ await redisClient.connect();
 // Init Firemapper
 initialize(db, {
   validateModels: true,
-  cache: {
-    type: 'redis',
-    redisClient,
-    ttl: 1000,
-  },
+  // cache: {
+  //   type: 'redis',
+  //   redisClient,
+  //   ttl: 60,
+  // },
 });
 
 // Define an entity
@@ -34,14 +34,14 @@ class Dog extends BaseEntity {
   breed: 'dalmation' | 'bulldog' | 'pitbull' | 'labrador';
   name: string;
   birthdate: EpochTimeStamp;
-  ownerId: string | null;
+  owner: DocumentReference | null;
 }
 
 @Collection('users')
 class User extends BaseEntity {
   firstName: string;
   lastName: string;
-  dogIds: string[];
+  dogs: DocumentReference[];
 }
 
 // Define a custom repo
@@ -62,7 +62,7 @@ export async function manualTest() {
   newDog.breed = 'bulldog';
   newDog.name = 'Caesar';
   newDog.birthdate = 170000000;
-  newDog.ownerId = null;
+  newDog.owner = null;
 
   const savedDog = await dogRepo.save(newDog);
 
@@ -85,7 +85,7 @@ export async function manualTest() {
   const newUser = new User();
   newUser.firstName = 'John';
   newUser.lastName = 'Doe';
-  newUser.dogIds = [];
+  newUser.dogs = [];
   const savedUser = await userRepo.save(newUser);
 
   const dogId = updatedDog.id;
@@ -106,8 +106,8 @@ export async function manualTest() {
       throw new Error(`User with id ${userId} not found`);
     }
 
-    await dogRepo.update(dog, { ownerId: user.id });
-    await userRepo.update(user, { dogIds: FieldValue.arrayUnion(dog.id) });
+    await dogRepo.update(dog, { owner: user.ref });
+    await userRepo.update(user, { dogs: FieldValue.arrayUnion(dog.ref) });
   });
 
   // Query for many entities (with optional pagination)
