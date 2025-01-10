@@ -28,12 +28,12 @@ export abstract class AbstractCache<T extends IEntity>
 {
   protected readonly redisClient: RedisClientType | undefined;
   protected readonly cacheSerializer: CacheSerializer;
-  protected readonly collPath: string;
+  protected readonly path: string;
   protected readonly cacheTTL: number;
 
   constructor(collMetadata: CollectionMetadata) {
     super(); // Dummy call
-    this.collPath = collMetadata.name;
+    this.path = `cache:${collMetadata.name}`;
     this.cacheSerializer = new CacheSerializer();
     const { config } = getFiremapperStorage();
     this.cacheTTL = config.cache?.ttl || 10;

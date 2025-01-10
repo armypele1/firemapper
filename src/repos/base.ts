@@ -28,7 +28,7 @@ export class BaseRepository<T extends IEntity>
 
   public async save(item: PartialBy<T, 'id'>): Promise<T> {
     const doc = item.id ? this.colRef.doc(item.id) : this.colRef.doc();
-    const now = Timestamp.now().seconds;
+    const now = Timestamp.now();
 
     const exists = item.id ? (await doc.get()).exists : false;
     const itemToSave = {
@@ -36,8 +36,6 @@ export class BaseRepository<T extends IEntity>
       updateTime: now,
       ...(exists ? {} : { createTime: now }),
     };
-
-    console.log(itemToSave);
 
     await doc.set(itemToSave);
     await this.cacheManager?.invalidate(doc.id);
@@ -47,9 +45,9 @@ export class BaseRepository<T extends IEntity>
   public async update(item: T, fields: TypedUpdateData<T>): Promise<T> {
     const doc = this.colRef.doc(item.id);
     const serializedFields = this.toFirestoreUpdateData(fields);
-    const now = Timestamp.now().seconds;
+    const now = Timestamp.now();
 
-    const res = await doc.update({
+    await doc.update({
       ...serializedFields,
       updateTime: now,
     });
@@ -117,7 +115,6 @@ export class BaseRepository<T extends IEntity>
 
     const cached = await this.cacheManager?.getCachedQueryMulti(paginatedQuery);
     if (cached) {
-      console.log('Retrieving from cache!');
       return cached as PaginatedResponse<T>;
     }
 

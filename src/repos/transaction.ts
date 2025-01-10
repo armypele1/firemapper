@@ -1,4 +1,4 @@
-import { DocumentSnapshot, Query, Timestamp, type Transaction } from '@google-cloud/firestore';
+import { Query, Timestamp, type Transaction } from '@google-cloud/firestore';
 import type {
   DocId,
   IEntity,
@@ -44,7 +44,7 @@ export class TransactionRepository<T extends IEntity>
 
   public async save(item: PartialBy<T, 'id'>): Promise<T> {
     const doc = item.id ? this.colRef.doc(item.id) : this.colRef.doc();
-    const now = Timestamp.now().seconds;
+    const now = Timestamp.now();
 
     /* This existence check is not within the transaction since all reads must be
     done before writes in Firestore transactions. */
@@ -63,7 +63,7 @@ export class TransactionRepository<T extends IEntity>
   public async update(item: T, fields: TypedUpdateData<T>): Promise<void> {
     const doc = this.colRef.doc(item.id);
     const serializedFields = this.toFirestoreUpdateData(fields);
-    const now = Timestamp.now().seconds;
+    const now = Timestamp.now();
 
     await this.transaction.update(doc, {
       ...serializedFields,

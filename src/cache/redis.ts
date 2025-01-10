@@ -5,7 +5,7 @@ import { getFiremapperStorage } from '../storage/storage-utils.js';
 import type { CollectionMetadata } from '../storage/storage.js';
 
 export class RedisCache<T extends IEntity> extends AbstractCache<T> implements ICache<T> {
-  protected override readonly redisClient: RedisClientType | undefined;
+  protected override readonly redisClient: RedisClientType;
 
   constructor(collMetadata: CollectionMetadata) {
     super(collMetadata); // Dummy call
@@ -19,7 +19,7 @@ export class RedisCache<T extends IEntity> extends AbstractCache<T> implements I
 
   public override async cacheEntity(item: T): Promise<void> {
     const serialized = this.cacheSerializer.serialize(item);
-    await this.redisClient!.set(`${this.collPath}:${item.id}`, serialized, {
+    await this.redisClient.set(`${this.path}:entity:${item.id}`, serialized, {
       EX: this.cacheTTL,
     });
   }
@@ -30,24 +30,24 @@ export class RedisCache<T extends IEntity> extends AbstractCache<T> implements I
   ): Promise<void> {
     const queryKey = this.getQueryKey(query);
     const serialized = this.cacheSerializer.serialize(queryResult);
-    await this.redisClient!.set(`${this.collPath}:query:${queryKey}`, serialized, {
+    await this.redisClient.set(`${this.path}:query:${queryKey}`, serialized, {
       EX: this.cacheTTL,
     });
   }
 
   public override async invalidate(id?: string): Promise<void> {
     if (id) {
-      await this.redisClient!.del(`${this.collPath}:${id}`);
+      await this.redisClient.del(`${this.path}:${id}`);
     }
-    const queryPattern = `${this.collPath}:query:*`;
-    const queryKeys = await this.redisClient!.keys(queryPattern);
+    const queryPattern = `${this.path}:query:*`;
+    const queryKeys = await this.redisClient.keys(queryPattern);
     if (queryKeys && queryKeys.length > 0) {
-      await this.redisClient!.del(queryKeys);
+      await this.redisClient.del(queryKeys);
     }
   }
 
   public override async getCachedEntity(id: string): Promise<T | null> {
-    const serialized = await this.redisClient!.get(`${this.collPath}:${id}`);
+    const serialized = await this.redisClient.get(`${this.path}:entity:${id}`);
     if (!serialized) {
       return null;
     }
@@ -58,7 +58,7 @@ export class RedisCache<T extends IEntity> extends AbstractCache<T> implements I
     query: FirebaseFirestore.Query,
   ): Promise<PaginatedResponse<T> | null> {
     const queryKey = this.getQueryKey(query);
-    const serialized = await this.redisClient!.get(`${this.collPath}:query:${queryKey}`);
+    const serialized = await this.redisClient.get(`${this.path}:query:${queryKey}`);
     if (!serialized) {
       return null;
     }
@@ -67,7 +67,7 @@ export class RedisCache<T extends IEntity> extends AbstractCache<T> implements I
 
   public override async getCachedQuerySingle(query: FirebaseFirestore.Query): Promise<T | null> {
     const queryKey = this.getQueryKey(query);
-    const serialized = await this.redisClient!.get(`${this.collPath}:query:${queryKey}`);
+    const serialized = await this.redisClient.get(`${this.path}:query:${queryKey}`);
     if (!serialized) {
       return null;
     }

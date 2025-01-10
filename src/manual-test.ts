@@ -4,7 +4,7 @@ import { getRepository } from './repos/helpers.js';
 import admin from 'firebase-admin';
 import { initialize } from './storage/storage-utils.js';
 import { runTransaction } from './transaction.js';
-import { DocumentReference, FieldValue } from '@google-cloud/firestore';
+import { DocumentReference, FieldValue, GeoPoint, Timestamp } from '@google-cloud/firestore';
 import { CustomRepository } from './repos/custom.js';
 import { BaseRepository } from './repos/base.js';
 import { createClient, type RedisClientType } from 'redis';
@@ -21,11 +21,11 @@ await redisClient.connect();
 // Init Firemapper
 initialize(db, {
   validateModels: true,
-  // cache: {
-  //   type: 'redis',
-  //   redisClient,
-  //   ttl: 60,
-  // },
+  cache: {
+    type: 'redis',
+    redisClient,
+    ttl: 60,
+  },
 });
 
 // Define an entity
@@ -33,7 +33,7 @@ initialize(db, {
 class Dog extends BaseEntity {
   breed: 'dalmation' | 'bulldog' | 'pitbull' | 'labrador';
   name: string;
-  birthdate: EpochTimeStamp;
+  birthdate: Timestamp;
   owner: DocumentReference | null;
 }
 
@@ -42,6 +42,7 @@ class User extends BaseEntity {
   firstName: string;
   lastName: string;
   dogs: DocumentReference[];
+  homeLocation: GeoPoint;
 }
 
 // Define a custom repo
@@ -61,7 +62,7 @@ export async function manualTest() {
   const newDog = new Dog();
   newDog.breed = 'bulldog';
   newDog.name = 'Caesar';
-  newDog.birthdate = 170000000;
+  newDog.birthdate = Timestamp.now();
   newDog.owner = null;
 
   const savedDog = await dogRepo.save(newDog);
@@ -86,6 +87,7 @@ export async function manualTest() {
   newUser.firstName = 'John';
   newUser.lastName = 'Doe';
   newUser.dogs = [];
+  newUser.homeLocation = new GeoPoint(37.7749, -122.4194);
   const savedUser = await userRepo.save(newUser);
 
   const dogId = updatedDog.id;
@@ -124,6 +126,7 @@ export async function manualTest() {
   );
 
   const res = await dogRepo.findBulldogs();
+  const dog = await dogRepo.findById(dogId);
   console.log('****');
   console.log(res);
 

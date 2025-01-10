@@ -4,6 +4,7 @@ import {
   FieldValue,
   type OrderByDirection,
   DocumentReference,
+  Timestamp,
 } from '@google-cloud/firestore';
 import { type UpdateData } from '@google-cloud/firestore';
 
@@ -17,8 +18,8 @@ export type RepositoryConstructor = Constructor<IRepository<IEntity>>;
 // where it thinks there is an issue with the expected timestamp format
 export interface IEntity {
   readonly id: string;
-  readonly createTime: EpochTimeStamp;
-  readonly updateTime: EpochTimeStamp;
+  readonly createTime: Timestamp;
+  readonly updateTime: Timestamp;
   readonly ref: DocumentReference;
 }
 
@@ -150,6 +151,15 @@ export interface ICache<T> {
 export interface SerializedDocRef {
   __docRef: true;
   path: string;
+}
+export interface SerializedGeoPoint {
+  __geoPoint: true;
+  latitude: number;
+  longitude: number;
+}
+export interface SerializedTimestamp {
+  __timestamp: true;
+  value: string;
 }
 
 export interface ValidatorOptions {

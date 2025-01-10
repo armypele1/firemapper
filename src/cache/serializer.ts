@@ -1,7 +1,13 @@
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, GeoPoint, Timestamp } from '@google-cloud/firestore';
 import { getFiremapperStorage } from '../storage/storage-utils.js';
 import type { SerializedDocRef } from '../types.js';
-import { isDocumentReference } from '../utils.js';
+import {
+  isDocumentReference,
+  isGeoPoint,
+  isSerializedDocRef,
+  isSerializedTimestamp,
+  isTimestamp,
+} from '../utils.js';
 
 // TODO Create one universal document serializer to be used across the codebase
 /**
@@ -20,15 +26,6 @@ export class CacheSerializer {
     this.firestoreRef = firestoreRef;
   }
 
-  private isSerializedDocRef(value: unknown): value is SerializedDocRef {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '__docRef' in value &&
-      typeof (value as SerializedDocRef).path === 'string'
-    );
-  }
-
   /**
    * Serialize data for cache, handles complex firestore data types
    * @param data
@@ -42,14 +39,32 @@ export class CacheSerializer {
           path: value.path,
         };
       }
+      if (isTimestamp(value))
+        return {
+          __timestamp: true,
+          value: value.toDate().toISOString(),
+        };
+      if (isGeoPoint(value)) {
+        return {
+          __geoPoint: true,
+          latitude: value.latitude,
+          longitude: value.longitude,
+        };
+      }
       return value;
     });
   }
 
   public deserialize<T>(data: string): T {
     return JSON.parse(data, (_, value) => {
-      if (this.isSerializedDocRef(value)) {
+      if (isSerializedDocRef(value)) {
         return this.firestoreRef.doc(value.path);
+      }
+      if (isSerializedTimestamp(value)) {
+        return Timestamp.fromDate(new Date(value.value));
+      }
+      if (isGeoPoint(value)) {
+        return new GeoPoint(value.latitude, value.longitude);
       }
       return value;
     });
