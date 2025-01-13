@@ -21,7 +21,7 @@ export interface RepositoryMetadata {
 }
 
 export interface FireMapperStorageConfig {
-  validateModels: boolean;
+  validateModels?: boolean;
   validatorOptions?: ValidatorOptions;
   throwOnDuplicatedCollection?: boolean;
   cache?: {

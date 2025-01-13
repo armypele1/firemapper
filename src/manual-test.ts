@@ -20,7 +20,6 @@ await redisClient.connect();
 
 // Init Firemapper
 initialize(db, {
-  validateModels: true,
   cache: {
     type: 'redis',
     redisClient,
