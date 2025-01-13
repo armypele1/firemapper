@@ -1,5 +1,4 @@
-import { DocumentReference, FieldValue, GeoPoint, Timestamp } from '@google-cloud/firestore';
-import { Transform } from 'class-transformer';
+import { DocumentReference, GeoPoint, Timestamp } from '@google-cloud/firestore';
 import {
   FIRESTORE_TRANSFORMS,
   type SerializedDocRef,
