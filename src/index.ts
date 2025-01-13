@@ -6,5 +6,5 @@ export { BaseEntity } from './entity.js';
 export { getRepository } from './repos/helpers.js';
 export { runTransaction } from './transaction.js';
 
-import { manualTest } from './manual-test.js';
-manualTest();
+// import { manualTest } from './manual-test.js';
+// manualTest();
