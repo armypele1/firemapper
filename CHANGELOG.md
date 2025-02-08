@@ -1,5 +1,11 @@
 # firemapper
 
+## 0.0.9
+
+### Patch Changes
+
+- a3d306d: Fix duplicate collections names
+
 ## 0.0.4
 
 ### Patch Changes
