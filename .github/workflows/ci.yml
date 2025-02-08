@@ -28,11 +28,11 @@ jobs:
       - name: Run CI
         run: npm run ci
 
-      - name: Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: changesets/action@v1
-        with:
-          publish: npm run release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Release
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   uses: changesets/action@v1
+      #   with:
+      #     publish: npm run release
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
