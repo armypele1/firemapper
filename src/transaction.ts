@@ -1,6 +1,6 @@
 import { getFiremapperStorage } from './storage/storage-utils.js';
 import type { Transaction } from '@google-cloud/firestore';
-import type { Constructor, EntityConstructor, IEntity, IFirestoreTransaction } from './types.js';
+import type { Constructor, IEntity, IFirestoreTransaction } from './types.js';
 import { TransactionRepository } from './repos/transaction.js';
 
 const firemapperStorage = getFiremapperStorage();

@@ -1,12 +1,6 @@
 import { Firestore } from '@google-cloud/firestore';
 import { FiremapperRepository } from '../repos/abstract.js';
-import type {
-  EntityConstructor,
-  Constructor,
-  IEntity,
-  RepositoryConstructor,
-  ValidatorOptions,
-} from '../types.js';
+import type { EntityConstructor, RepositoryConstructor, ValidatorOptions } from '../types.js';
 import { type RedisClientType } from 'redis';
 
 export interface CollectionMetadata {
@@ -43,8 +37,13 @@ export class FireMapperStorage {
 
   public firestoreRef: Firestore | undefined = undefined;
 
-  public getCollection = (constructor: EntityConstructor) => {
-    const collection = this.collections.find((c) => c.entityConstructor === constructor);
+  public getCollection = (constructorOrName: EntityConstructor | string) => {
+    const collection = this.collections.find((c) => {
+      if (typeof constructorOrName === 'string') {
+        return c.name === constructorOrName;
+      }
+      return c.entityConstructor === constructorOrName;
+    });
     if (!collection) {
       return null;
     }
@@ -52,9 +51,15 @@ export class FireMapperStorage {
   };
 
   public setCollection = (col: CollectionMetadata) => {
-    const existing = this.getCollection(col.entityConstructor);
-    if (existing && this.config.throwOnDuplicatedCollection == true) {
-      throw new Error(`Collection with name ${existing.name} has already been registered`);
+    const findByConstructor = this.getCollection(col.entityConstructor);
+    if (findByConstructor && this.config.throwOnDuplicatedCollection == true) {
+      throw new Error(
+        `Collection labelled ${findByConstructor.name} is using an existing entity constructor`,
+      );
+    }
+    const findByName = this.getCollection(col.name);
+    if (findByName && this.config.throwOnDuplicatedCollection == true) {
+      throw new Error(`Collection with name ${findByName.name} has already been registered`);
     }
     this.collections.push(col);
   };
